@@ -221,8 +221,13 @@ class ThreadedWget():
 
         try:
             with urllib.request.urlopen(download_url) as response, open(output_path.rstrip(), 'wb') as out_file:
-                data = response.read()
-                out_file.write(data)
+                last_epoch = self.get_remote_timestamp(response.info()['Last-Modified'])
+                if self.mirror_compare_time(round(os.path.getmtime(output_path)), round(last_epoch)):
+                    print('\n --> Remotem is newer than local')
+                else:
+                    print('\n --> Remote is NOT newer than local')
+                #data = response.read()
+                #out_file.write(data)
         except urllib.error.HTTPError as e:
             print('ERROR: Failed to download: ', download_url)
             print('ERROR MSG: ' + e.msg)
@@ -235,7 +240,7 @@ class ThreadedWget():
             print('----- Thread Ending -----\n')
 
     def mirror_compare_time(self, local_file, remote_file):
-        pass
+        print('Comparing ' + str(local_file) + 'and ' + str(remote_file))
 
 
     def get_remote_timestamp(self, last_modified):
@@ -244,6 +249,7 @@ class ThreadedWget():
         :param last_modified: Last-Modified header timestamp
         :return: epoch time
         """
+        print('get_remote_timestamp called with: ' + last_modified)
         temp_time = time.strptime(last_modified, "%a, %d %b %Y %I:%M:%S %Z")
         #return time.mktime(time.strptime(last_modified, "%a, %d %b %Y %I:%M:%S %Z"))
         return time.mktime(temp_time)
