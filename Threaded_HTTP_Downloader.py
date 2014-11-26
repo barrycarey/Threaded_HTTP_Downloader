@@ -234,6 +234,22 @@ class ThreadedWget():
         if self.verbose:
             print('----- Thread Ending -----\n')
 
+    def mirror_compare_time(self, local_file, remote_file):
+        pass
+
+
+    def get_remote_timestamp(self, last_modified):
+        """
+        Convert the Last-Modified header time into epoch time
+        :param last_modified: Last-Modified header timestamp
+        :return: epoch time
+        """
+        temp_time = time.strptime(last_modified, "%a, %d %b %Y %I:%M:%S %Z")
+        #return time.mktime(time.strptime(last_modified, "%a, %d %b %Y %I:%M:%S %Z"))
+        return time.mktime(temp_time)
+
+    def get_local_timestamp(self, last_modified):
+        pass
 
     def clear_screen(self):
         """
