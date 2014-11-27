@@ -8,9 +8,10 @@ from bs4 import BeautifulSoup
 import urllib.request
 import urllib.error
 
+# TODO Fix local last modifiec handling.  Currently using manual offset to adjusting Epoch time.  Remote file returns GMT Epoch, local files returns EST Epoch
 # TODO Cleanup handling of slashes
 # TODO Add a queue for files to download.  This way while waiting on max threads the download list can continue to build
-# TODO Add option for pure urllib download to remove the wget requirement.
+
 
 
 """
@@ -215,19 +216,33 @@ class ThreadedWget():
         else:
             output_path = self.output_dir + path + output_file
 
+
         # Make sure output director if it does not exists
         if not os.path.exists(os.path.dirname(output_path)):
             os.makedirs(os.path.dirname(output_path))
 
         try:
-            with urllib.request.urlopen(download_url) as response, open(output_path.rstrip(), 'wb') as out_file:
-                last_epoch = self.get_remote_timestamp(response.info()['Last-Modified'])
-                if self.mirror_compare_time(round(os.path.getmtime(output_path)), round(last_epoch)):
-                    print('\n --> Remotem is newer than local')
-                else:
-                    print('\n --> Remote is NOT newer than local')
-                #data = response.read()
-                #out_file.write(data)
+            with urllib.request.urlopen(download_url) as response:
+
+                # If file exists compare last modified
+                if os.path.isfile(output_path):
+                    local_last_modified = self.get_local_timestamp(output_path)
+                    remote_last_modified = self.get_remote_timestamp(response.info()['Last-Modified'])
+
+                    if self.mirror_compare_time(local_last_modified, remote_last_modified):
+                        if self.verbose:
+                            print('MIRROR: Remote File Is Newer: ' + output_file)
+
+                    else:
+                        if self.verbose:
+                            print('MIRROR: Remote File Not Newer: ' + output_file)
+                        return
+
+                out_file = open(output_path.rstrip(), 'wb')
+                data = response.read()
+                out_file.write(data)
+                out_file.close()
+
         except urllib.error.HTTPError as e:
             print('ERROR: Failed to download: ', download_url)
             print('ERROR MSG: ' + e.msg)
@@ -239,8 +254,15 @@ class ThreadedWget():
         if self.verbose:
             print('----- Thread Ending -----\n')
 
+
+
     def mirror_compare_time(self, local_file, remote_file):
-        print('Comparing ' + str(local_file) + 'and ' + str(remote_file))
+        print('Local File: ' + str(local_file))
+        print('Remote File: ' + str(remote_file))
+        if remote_file > local_file:
+            return True
+        else:
+            return False
 
 
     def get_remote_timestamp(self, last_modified):
@@ -250,12 +272,13 @@ class ThreadedWget():
         :return: epoch time
         """
         print('get_remote_timestamp called with: ' + last_modified)
-        temp_time = time.strptime(last_modified, "%a, %d %b %Y %I:%M:%S %Z")
+        temp_time = time.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z")
         #return time.mktime(time.strptime(last_modified, "%a, %d %b %Y %I:%M:%S %Z"))
-        return time.mktime(temp_time)
+        return round(time.mktime(temp_time))
 
-    def get_local_timestamp(self, last_modified):
-        pass
+    def get_local_timestamp(self, local_file):
+        # TODO Sort out local timzone.  + 18000 is a temp fix for time difference
+        return round(os.path.getmtime(local_file) + 18000)
 
     def clear_screen(self):
         """
