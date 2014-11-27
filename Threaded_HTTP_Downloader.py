@@ -26,12 +26,13 @@ The module expects a raw directory listing of the URL. It will not work if there
 """
 class ThreadedWget():
 
-    def __init__(self, dl_url, output_dir, threads=15, mirror=False, verbose=False, no_parent=False,
-                 no_host_directories=False):
+    def __init__(self, dl_url, output_dir, threads=15, mirror=False, verbose=False, debug=False):
 
         self.download_url = dl_url
         self.verbose = verbose
         self.threads = int(threads)
+        self.mirror = mirror
+        self.debug = debug
 
         if os.name == 'nt':
             self.host_os = 'windows'
@@ -61,23 +62,6 @@ class ThreadedWget():
                 self.output_dir = os.getcwd()
         else:
             self.output_dir = output_dir
-
-        # Handle Wget Flags
-        if not mirror:
-            self.mirror = ''
-        else:
-            self.mirror = '--mirror'
-
-        if not no_parent:
-            self.no_parent = ''
-        else:
-            self.no_parent = '--no-parent'
-
-        if not no_host_directories:
-            self.no_host_directories = ''
-        else:
-            self.no_host_directories = '--no-host-directories'
-
 
     def run(self):
         """
@@ -169,8 +153,8 @@ class ThreadedWget():
 
             time.sleep(0.02)
             if self.verbose:
-                print('[+] Starting new thread with download_url as: ' + download_url)
-                print('[+] Starting new thread with output_file as: ' + output_file)
+                print('[+] New Thread URL: ' + download_url)
+                print('[+] New Thread File: ' + output_file)
 
             t = threading.Thread(target=self._threaded_download, name=os.path.basename(output_file),
                                  args=(download_url, output_file, path,))
@@ -224,19 +208,22 @@ class ThreadedWget():
         try:
             with urllib.request.urlopen(download_url) as response:
 
-                # If file exists compare last modified
-                if os.path.isfile(output_path):
+                # If mirror is enabled and file exists check if remote file is newer than local.
+                if os.path.isfile(output_path) and self.mirror:
                     local_last_modified = self.get_local_timestamp(output_path)
                     remote_last_modified = self.get_remote_timestamp(response.info()['Last-Modified'])
 
+                    # This func call may not be needed but may add more checks later
                     if self.mirror_compare_time(local_last_modified, remote_last_modified):
                         if self.verbose:
-                            print('MIRROR: Remote File Is Newer: ' + output_file)
-
+                            print('[+] MIRROR: Remote File Is Newer: ' + output_file)
                     else:
                         if self.verbose:
-                            print('MIRROR: Remote File Not Newer: ' + output_file)
+                            print('[+] MIRROR: Remote File Not Newer: ' + output_file)
                         return
+
+                if self.debug:
+                    print('{+}  Downloading File: ', output_file)
 
                 out_file = open(output_path.rstrip(), 'wb')
                 data = response.read()
@@ -244,21 +231,18 @@ class ThreadedWget():
                 out_file.close()
 
         except urllib.error.HTTPError as e:
-            print('ERROR: Failed to download: ', download_url)
-            print('ERROR MSG: ' + e.msg)
-
-
-        if self.verbose:
-            print('Downloading File: ', output_file)
+            print('[x] ERROR: Failed to download: ', download_url)
+            print('[x] ERROR MSG: ' + e.msg)
 
         if self.verbose:
-            print('----- Thread Ending -----\n')
+            print('[!] Thread Ending: ', output_file)
 
 
 
     def mirror_compare_time(self, local_file, remote_file):
-        print('Local File: ' + str(local_file))
-        print('Remote File: ' + str(remote_file))
+        if self.debug:
+            print('[?] Local File: ' + str(local_file))
+            print('[?] Remote File: ' + str(remote_file))
         if remote_file > local_file:
             return True
         else:
@@ -271,7 +255,8 @@ class ThreadedWget():
         :param last_modified: Last-Modified header timestamp
         :return: epoch time
         """
-        print('get_remote_timestamp called with: ' + last_modified)
+        if self.debug:
+            print('get_remote_timestamp called with: ' + last_modified)
         temp_time = time.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z")
         #return time.mktime(time.strptime(last_modified, "%a, %d %b %Y %I:%M:%S %Z"))
         return round(time.mktime(temp_time))
@@ -300,14 +285,12 @@ def main():
     parser.add_argument("--threads", default=15, dest="threads", help="The number of download threads to run at once.")
     parser.add_argument("--verbose", action='store_true', help="Prints a more verbose output", default=False, dest="verbose")
     parser.add_argument("--mirror", action='store_true', help="Enable/Disable Wget's mirror functionality", default=False, dest="mirror")
-    parser.add_argument("--no_parent", action="store_true", default=False, dest="no_parent")
-    parser.add_argument("--no_host_directories", action="store_true", default=False, dest="no_host_directories")
+    parser.add_argument("--debug", action="store_true", default=False, dest="debug", help="Print Debug Output")
     args = parser.parse_args()
 
 
-    downloader = ThreadedWget(args.dl_url, args.output_dir, threads=args.threads,
-                              verbose=args.verbose, mirror=args.mirror, no_parent=args.no_parent,
-                              no_host_directories=args.no_host_directories)
+    downloader = ThreadedWget(args.dl_url, args.output_dir, threads=args.threads, verbose=args.verbose,
+                              mirror=args.mirror, debug=args.debug)
     try:
         downloader.run()
     except KeyboardInterrupt:
