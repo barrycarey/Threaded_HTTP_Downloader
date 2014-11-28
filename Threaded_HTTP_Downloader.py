@@ -1,7 +1,6 @@
 import os
 import sys
 import argparse
-import subprocess
 import time
 import threading
 from bs4 import BeautifulSoup
@@ -15,24 +14,31 @@ import urllib.error
 
 
 """
-A class to parse a directory listing of a URL and spawn a Wget download for each file encountered.
+A class to parse a directory listing of a URL and spawn a  download for each file encountered.
 The module uses Beautiful Soup to parse the URL and pull out all links.  The links are then checked
-to determine of they are files or directories.  If it's a file a download thread is spawned.  If it's
+to determine if they are files or directories.  If it's a file a download thread is spawned.  If it's
 a directory it crawls into it and repeats the process.
-
-If on Windows script expects the Wget exe to be in the same directory or in util.
 
 The module expects a raw directory listing of the URL. It will not work if there is a default HTML page at the URL.
 """
+
+
 class ThreadedWget():
 
-    def __init__(self, dl_url, output_dir, threads=15, mirror=False, verbose=False, debug=False):
+    def __init__(self, dl_url=None, output_dir=None, threads=15, mirror=False, verbose=False, debug=False):
+
+        if not dl_url:
+            self.clear_screen()
+            print('[x] ERROR: Please Provide Download URL and Try Again')
+            time.sleep(7)
+            sys.exit()
 
         self.download_url = dl_url
         self.verbose = verbose
-        self.threads = int(threads) # May not be needed. Check Argparse for getting int not str
-        self.mirror = mirror
         self.debug = debug
+        self.threads = threads
+        self.mirror = mirror
+        self.file_count_lock = threading.Lock()
         self.file_count = 0
 
         if os.name == 'nt':
@@ -78,8 +84,9 @@ class ThreadedWget():
 
         self.parse_remote_dir_tree(self.download_url, '')
 
-        print('\nAll Download Threads Launched.\n')
-        # TODO Make thread checking it's own method
+        if self.verbose:
+            print('[!] All Download Threads Launched.\n')
+
         last_active = 0
         while threading.active_count() > 1:
             if last_active != threading.active_count():
@@ -111,9 +118,6 @@ class ThreadedWget():
         """
         dirs = []
         files = []
-
-        # Build up directory path
-        # path = path + '/' + dir
 
         # TODO This is mega hackish.  Revisit
         if path == '/':
@@ -239,9 +243,14 @@ class ThreadedWget():
                 data = response.read()
                 out_file.write(data)
                 out_file.close()
-                self.file_count += 1
 
-        except urllib.error.HTTPError as e:
+                try:
+                    self.file_count_lock.acquire()
+                    self.file_count += 1
+                finally:
+                    self.file_count_lock.release()
+
+        except (urllib.error.HTTPError, urllib.error.URLError) as e:
             print('[x] ERROR: Failed to download: ', download_url)
             print('[x] ERROR MSG: ' + e.msg)
 
@@ -287,16 +296,19 @@ def main():
     parser = argparse.ArgumentParser(description="A wrapper for Windows Wget that will scan a whole http directory tree "
                                                  "and download all files. ")
 
-    parser.add_argument("dl_url", help="This is the URL to download")
-    parser.add_argument("--output", default=False, dest="output_dir")
-    parser.add_argument("--threads", default=15, dest="threads", help="The number of download threads to run at once.")
-    parser.add_argument("--verbose", action='store_true', help="Prints a more verbose output", default=False, dest="verbose")
-    parser.add_argument("--mirror", action='store_true', help="Enable/Disable Wget's mirror functionality", default=False, dest="mirror")
+    parser.add_argument("--url", default=None, dest="dl_url", help="This is the URL to download")
+    parser.add_argument("--output", default=None, dest="output_dir")
+    parser.add_argument("--threads", default=15, dest="threads", type=int,
+                        help="The number of download threads to run at once.")
+    parser.add_argument("--verbose", action='store_true', help="Prints a more verbose output", default=False,
+                        dest="verbose")
+    parser.add_argument("--mirror", action='store_true', help="Enable/Disable Wget's mirror functionality",
+                        default=False, dest="mirror")
     parser.add_argument("--debug", action="store_true", default=False, dest="debug", help="Print Debug Output")
     args = parser.parse_args()
 
 
-    downloader = ThreadedWget(args.dl_url, args.output_dir, threads=args.threads, verbose=args.verbose,
+    downloader = ThreadedWget(dl_url=args.dl_url, output_dir=args.output_dir, threads=args.threads, verbose=args.verbose,
                               mirror=args.mirror, debug=args.debug)
     try:
         downloader.run()
