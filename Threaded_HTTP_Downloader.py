@@ -30,9 +30,10 @@ class ThreadedWget():
 
         self.download_url = dl_url
         self.verbose = verbose
-        self.threads = int(threads)
+        self.threads = int(threads) # May not be needed. Check Argparse for getting int not str
         self.mirror = mirror
         self.debug = debug
+        self.file_count = 0
 
         if os.name == 'nt':
             self.host_os = 'windows'
@@ -71,12 +72,14 @@ class ThreadedWget():
         :return:
         """
 
-        print('[+] Starting Parse And Download Of ' + self.download_url + '\n')
+        print('[+] Starting Parse And Download Of ' + self.download_url)
+        if self.output_dir:
+            print('[+] Output Directory is: ' + self.output_dir + '\n')
 
         self.parse_remote_dir_tree(self.download_url, '')
 
         print('\nAll Download Threads Launched.\n')
-        # TODO Make thread checking it's down method
+        # TODO Make thread checking it's own method
         last_active = 0
         while threading.active_count() > 1:
             if last_active != threading.active_count():
@@ -90,7 +93,10 @@ class ThreadedWget():
             last_active = threading.active_count()
             time.sleep(1)
 
-        print('[!] Success: All Downloads Have Finished')
+        self.clear_screen()
+        print('[!] Success: ' + str(self.file_count) + ' Files Have Been Downloaded')
+        time.sleep(5)
+        self.clear_screen()
 
     def parse_remote_dir_tree(self, url, dir, path='', previous=None):
         """
@@ -132,6 +138,12 @@ class ThreadedWget():
                 if self.verbose:
                     print('[+] Skipping parent directory')
                 continue
+
+            if not link.string:
+                self.clear_screen()
+                print('[x] ERROR: No Links Found On Given URL')
+                time.sleep(5)
+                return
 
             # Get file name and extension.  If directory ext will be None
             name, ext = os.path.splitext(link.string)
@@ -189,7 +201,6 @@ class ThreadedWget():
         :return: None
         """
 
-
         if self.host_os == 'windows':
             output_file = output_file.replace(r'/', '\\')
             path = path.replace('/', '\\')
@@ -199,7 +210,6 @@ class ThreadedWget():
             output_path = self.output_dir + output_file
         else:
             output_path = self.output_dir + path + output_file
-
 
         # Make sure output director if it does not exists
         if not os.path.exists(os.path.dirname(output_path)):
@@ -223,12 +233,13 @@ class ThreadedWget():
                         return
 
                 if self.debug:
-                    print('{+}  Downloading File: ', output_file)
+                    print('[+]  Downloading File: ', output_file)
 
                 out_file = open(output_path.rstrip(), 'wb')
                 data = response.read()
                 out_file.write(data)
                 out_file.close()
+                self.file_count += 1
 
         except urllib.error.HTTPError as e:
             print('[x] ERROR: Failed to download: ', download_url)
@@ -237,17 +248,11 @@ class ThreadedWget():
         if self.verbose:
             print('[!] Thread Ending: ', output_file)
 
-
-
     def mirror_compare_time(self, local_file, remote_file):
         if self.debug:
             print('[?] Local File: ' + str(local_file))
             print('[?] Remote File: ' + str(remote_file))
-        if remote_file > local_file:
-            return True
-        else:
-            return False
-
+        return True if remote_file > local_file else False
 
     def get_remote_timestamp(self, last_modified):
         """
@@ -256,7 +261,7 @@ class ThreadedWget():
         :return: epoch time
         """
         if self.debug:
-            print('get_remote_timestamp called with: ' + last_modified)
+            print('[+] get_remote_timestamp called with: ' + last_modified)
         temp_time = time.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z")
         #return time.mktime(time.strptime(last_modified, "%a, %d %b %Y %I:%M:%S %Z"))
         return round(time.mktime(temp_time))
@@ -274,6 +279,8 @@ class ThreadedWget():
             os.system('cls')
         elif self.host_os == 'posix':
             os.system('clear')
+
+        print('\n')
 
 
 def main():
