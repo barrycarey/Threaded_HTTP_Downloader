@@ -290,15 +290,16 @@ class ThreadedDownloader():
 
 def main():
 
-    parser = argparse.ArgumentParser(description="A wrapper for Windows Wget that will scan a whole http directory tree "
-                                                 "and download all files. ")
-    parser.add_argument("--url", default=None, dest="dl_url", help="This is the URL to download")
-    parser.add_argument("--output", default=None, dest="output_dir")
+    parser = argparse.ArgumentParser(description="A utility to parse and and download all files of an http directory "
+                                                 "listing ")
+    parser.add_argument("--url", default=None, dest="dl_url", help="This is the URL to parse download")
+    parser.add_argument("--output", default=None, dest="output_dir", help="The directory to place downloaded files.  "
+                                                                          "Omitting this option will output to CWD")
     parser.add_argument("--threads", default=15, dest="threads", type=int,
                         help="The number of download threads to run at once.")
     parser.add_argument("--verbose", action='store_true', help="Prints a more verbose output", default=False,
                         dest="verbose")
-    parser.add_argument("--mirror", action='store_true', help="Enable/Disable Wget's mirror functionality",
+    parser.add_argument("--mirror", action='store_true', help="Only download file if remote file is newer than local",
                         default=False, dest="mirror")
     parser.add_argument("--debug", action="store_true", default=False, dest="debug", help="Print Debug Output")
     args = parser.parse_args()
