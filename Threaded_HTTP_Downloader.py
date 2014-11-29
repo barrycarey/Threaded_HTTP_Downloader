@@ -7,8 +7,7 @@ from bs4 import BeautifulSoup
 import urllib.request
 import urllib.error
 
-# TODO Fix local last modifiec handling.  Currently using manual offset to adjusting Epoch time.  Remote file returns GMT Epoch, local files returns EST Epoch
-# TODO Cleanup handling of slashes
+# TODO Fix local last modifiec handling.  Currently using manual offset to adjust Epoch time.  Remote file returns GMT Epoch, local files returns EST Epoch
 # TODO Add a queue for files to download.  This way while waiting on max threads the download list can continue to build
 
 
@@ -119,7 +118,6 @@ class ThreadedDownloader():
         dirs = []
         files = []
 
-        # TODO This is mega hackish.  Revisit
         if path == '/':
             path = path + dir
         else:
@@ -160,7 +158,6 @@ class ThreadedDownloader():
         for file in files:
             download_url = url + '/' + file
 
-            # Manage the amount of concurrent downloads. Don't start more download threads until below threshold
             while threading.active_count() > self.threads:
                 print('[x] Max download threads reached.  Waiting for threads to decrease')
                 time.sleep(2)
@@ -198,8 +195,7 @@ class ThreadedDownloader():
 
     def _threaded_download(self, download_url, output_file, path):
         """
-        Construct and call Wget to download individual files
-        Wget is being used here as I cannot find a way to easily replicate Wget's mirror functionality via urllib
+        Download the passed in file and output to the global output dir.
         :param download_url: The URL to download
         :param output_file: The file name and path of the local file
         :return: None
@@ -211,20 +207,20 @@ class ThreadedDownloader():
 
         # Don't append path if we're currently dealing with a file in the root
         if path == '\\':
-            output_path = self.output_dir + output_file
+            final_output_file = self.output_dir + output_file
         else:
-            output_path = self.output_dir + path + output_file
+            final_output_file = self.output_dir + path + output_file
 
-        # Make sure output director if it does not exists
-        if not os.path.exists(os.path.dirname(output_path)):
-            os.makedirs(os.path.dirname(output_path))
+        # Make output dir if it does not exists
+        if not os.path.exists(os.path.dirname(final_output_file)):
+            os.makedirs(os.path.dirname(final_output_file))
 
         try:
             with urllib.request.urlopen(download_url) as response:
 
                 # If mirror is enabled and file exists check if remote file is newer than local.
-                if os.path.isfile(output_path) and self.mirror:
-                    local_last_modified = self.get_local_timestamp(output_path)
+                if os.path.isfile(final_output_file) and self.mirror:
+                    local_last_modified = self.get_local_timestamp(final_output_file)
                     remote_last_modified = self.get_remote_timestamp(response.info()['Last-Modified'])
 
                     # This func call may not be needed but may add more checks later
@@ -239,7 +235,7 @@ class ThreadedDownloader():
                 if self.debug:
                     print('[+]  Downloading File: ', output_file)
 
-                out_file = open(output_path.rstrip(), 'wb')
+                out_file = open(final_output_file.rstrip(), 'wb')
                 data = response.read()
                 out_file.write(data)
                 out_file.close()
@@ -293,9 +289,9 @@ class ThreadedDownloader():
 
 
 def main():
+
     parser = argparse.ArgumentParser(description="A wrapper for Windows Wget that will scan a whole http directory tree "
                                                  "and download all files. ")
-
     parser.add_argument("--url", default=None, dest="dl_url", help="This is the URL to download")
     parser.add_argument("--output", default=None, dest="output_dir")
     parser.add_argument("--threads", default=15, dest="threads", type=int,
@@ -308,8 +304,8 @@ def main():
     args = parser.parse_args()
 
 
-    downloader = ThreadedDownloader(dl_url=args.dl_url, output_dir=args.output_dir, threads=args.threads, verbose=args.verbose,
-                              mirror=args.mirror, debug=args.debug)
+    downloader = ThreadedDownloader(dl_url=args.dl_url, output_dir=args.output_dir, threads=args.threads,
+                                    verbose=args.verbose, mirror=args.mirror, debug=args.debug)
     try:
         downloader.run()
     except KeyboardInterrupt:
