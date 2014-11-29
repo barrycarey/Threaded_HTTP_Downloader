@@ -1,11 +1,14 @@
 Threaded_HTTP_Downloader
 ========================
 
+A utility to parse and and download all files of an http directory listing.  The parse_remote_dir_tree func recursively
+scans each level.  It builds a list of all files and folders at that level.  
+
+This utility expects a raw directory listing.  It will not work if there is a default html page. 
+
 usage: Threaded_HTTP_Downloader.py [-h] [--url DL_URL] [--output OUTPUT_DIR]
                                    [--threads THREADS] [--verbose] [--mirror]
                                    [--debug]
-
-A utility to parse and and download all files of an http directory listing
 
 optional arguments: 
 
