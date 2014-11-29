@@ -23,7 +23,7 @@ The module expects a raw directory listing of the URL. It will not work if there
 """
 
 
-class ThreadedWget():
+class ThreadedDownloader():
 
     def __init__(self, dl_url=None, output_dir=None, threads=15, mirror=False, verbose=False, debug=False):
 
@@ -308,7 +308,7 @@ def main():
     args = parser.parse_args()
 
 
-    downloader = ThreadedWget(dl_url=args.dl_url, output_dir=args.output_dir, threads=args.threads, verbose=args.verbose,
+    downloader = ThreadedDownloader(dl_url=args.dl_url, output_dir=args.output_dir, threads=args.threads, verbose=args.verbose,
                               mirror=args.mirror, debug=args.debug)
     try:
         downloader.run()
