@@ -7,7 +7,7 @@ usage: Threaded_HTTP_Downloader.py [-h] [--url DL_URL] [--output OUTPUT_DIR]
 
 A utility to parse and and download all files of an http directory listing
 
-optional arguments:
+optional arguments: \n
   -h, --help           show this help message and exit
   
   --url DL_URL         This is the URL to parse download
