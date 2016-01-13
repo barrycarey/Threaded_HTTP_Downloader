@@ -151,7 +151,10 @@ class ThreadedDownloader():
             name, ext = os.path.splitext(link.string)
 
             if ext:
-                files.append(link.string)
+                if self.verify_url_directory(url + '/' + link.string):
+                    files.append(link.string)
+                else:
+                    dirs.append(link.string)
             else:
                 dirs.append(link.string)
 
@@ -288,6 +291,19 @@ class ThreadedDownloader():
 
         print('\n')
 
+    def verify_url_directory(self, url):
+        """
+        Test if the given URL is actually a directory.  This prevents folders with a . in the name from being treated
+        as files.
+        The request will return a 404 if it's actually a file due to the trailing slash
+        :param url:
+        :return:
+        """
+        try:
+            urllib.request.urlopen(url + "/")
+            return False
+        except urllib.error.HTTPError:
+            return True
 
 def main():
 
